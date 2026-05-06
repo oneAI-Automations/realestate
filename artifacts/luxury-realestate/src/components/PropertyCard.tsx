@@ -1,20 +1,5 @@
-import { BedDouble, Bath, Maximize2 } from "lucide-react";
 import { motion } from "framer-motion";
-
-interface Property {
-  id: number;
-  name: string;
-  location: string;
-  price: string;
-  bedrooms: number;
-  bathrooms: number;
-  area_sqft: number;
-  description: string;
-  image_url: string | null;
-  is_sold_out: boolean;
-  is_featured: boolean;
-  property_type: string;
-}
+import type { Property } from "@/lib/properties";
 
 interface PropertyCardProps {
   property: Property;
@@ -22,6 +7,8 @@ interface PropertyCardProps {
 }
 
 export default function PropertyCard({ property, index = 0 }: PropertyCardProps) {
+  const isSoldOut = property.status !== "Available";
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 30 }}
@@ -35,18 +22,18 @@ export default function PropertyCard({ property, index = 0 }: PropertyCardProps)
         {property.image_url ? (
           <img
             src={property.image_url}
-            alt={property.name}
+            alt={property.title}
             loading="lazy"
             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
             data-testid={`img-property-${property.id}`}
           />
         ) : (
-          <div className="w-full h-full bg-[#111] flex items-center justify-center">
-            <span className="text-white/20 font-serif text-lg">No Image</span>
+          <div className="w-full h-full bg-gradient-to-br from-[#111] to-[#1a1a1a] flex items-center justify-center">
+            <span className="text-white/10 font-serif text-5xl">E</span>
           </div>
         )}
 
-        {property.is_sold_out && (
+        {isSoldOut && (
           <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
             <span className="border-2 border-[#D4AF37] text-[#D4AF37] font-serif text-xl px-6 py-2 tracking-[0.3em] rotate-[-8deg]">
               SOLD OUT
@@ -54,44 +41,48 @@ export default function PropertyCard({ property, index = 0 }: PropertyCardProps)
           </div>
         )}
 
-        <div className="absolute top-3 left-3">
-          <span className="bg-[#D4AF37] text-black text-[10px] font-bold tracking-widest uppercase px-2.5 py-1">
-            {property.property_type}
-          </span>
-        </div>
+        {!isSoldOut && (
+          <div className="absolute top-3 left-3">
+            <span className="bg-[#D4AF37] text-black text-[10px] font-bold tracking-widest uppercase px-2.5 py-1">
+              Available
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="p-5">
-        <div className="flex items-start justify-between gap-2 mb-1">
-          <h3 className="font-serif text-lg text-white leading-tight" data-testid={`text-name-${property.id}`}>
-            {property.name}
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <h3
+            className="font-serif text-lg text-white leading-tight"
+            data-testid={`text-title-${property.id}`}
+          >
+            {property.title}
           </h3>
-          <span className="text-[#D4AF37] font-bold text-lg whitespace-nowrap" data-testid={`text-price-${property.id}`}>
+          <span
+            className="text-[#D4AF37] font-bold text-lg whitespace-nowrap"
+            data-testid={`text-price-${property.id}`}
+          >
             {property.price}
           </span>
         </div>
 
-        <p className="text-white/50 text-xs tracking-widest uppercase mb-3">
-          {property.location}
-        </p>
-
-        <p className="text-white/60 text-sm leading-relaxed mb-4 line-clamp-2">
-          {property.description}
-        </p>
-
-        <div className="flex items-center gap-4 pt-3 border-t border-white/10 text-white/50 text-xs">
-          <span className="flex items-center gap-1.5">
-            <BedDouble size={13} className="text-[#D4AF37]" />
-            {property.bedrooms} Bed
+        <div className="pt-3 border-t border-white/10 flex items-center justify-between">
+          <span
+            className={`text-xs tracking-widest uppercase font-medium ${
+              isSoldOut ? "text-red-400" : "text-green-400"
+            }`}
+          >
+            {property.status}
           </span>
-          <span className="flex items-center gap-1.5">
-            <Bath size={13} className="text-[#D4AF37]" />
-            {property.bathrooms} Bath
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Maximize2 size={13} className="text-[#D4AF37]" />
-            {property.area_sqft.toLocaleString()} sqft
-          </span>
+          <a
+            href="https://wa.me/919999999999"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#D4AF37] text-xs tracking-widest uppercase hover:underline"
+            data-testid={`btn-enquire-${property.id}`}
+          >
+            Enquire
+          </a>
         </div>
       </div>
     </motion.div>

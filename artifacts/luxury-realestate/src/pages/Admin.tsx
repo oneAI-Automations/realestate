@@ -1,40 +1,31 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import {
-  LogOut, Edit2, Trash2, Plus, Save, X, CheckCircle, ToggleLeft, ToggleRight, Home, TrendingUp, XCircle, Star
+  LogOut, Edit2, Trash2, Plus, Save, X, CheckCircle,
+  Home, TrendingUp, XCircle, Star, Upload, ImageIcon,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  useListProperties,
-  useUpdateProperty,
-  useDeleteProperty,
-  useCreateProperty,
   useGetSpecialOffer,
   useUpdateSpecialOffer,
-  useGetPropertyStats,
-  getListPropertiesQueryKey,
-  getGetFeaturedPropertiesQueryKey,
-  getGetPropertyStatsQueryKey,
   getGetSpecialOfferQueryKey,
 } from "@workspace/api-client-react";
+import {
+  useProperties,
+  useCreateProperty,
+  useUpdateProperty,
+  useDeleteProperty,
+  uploadPropertyImage,
+  PROPERTIES_KEY,
+  FEATURED_KEY,
+  type Property,
+} from "@/lib/properties";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
-interface EditingProperty {
-  id: number;
-  name: string;
-  price: string;
-  is_sold_out: boolean;
-  image_url: string;
-  location: string;
-  bedrooms: number;
-  bathrooms: number;
-  area_sqft: number;
-  description: string;
-  property_type: string;
-}
-
-function StatCard({ label, value, icon: Icon }: { label: string; value: number | undefined; icon: React.ElementType }) {
+function StatCard({
+  label, value, icon: Icon,
+}: { label: string; value: number | undefined; icon: React.ElementType }) {
   return (
     <div className="bg-[#0a0a0a] border border-white/10 p-6">
       <div className="flex items-start justify-between">
@@ -48,38 +39,118 @@ function StatCard({ label, value, icon: Icon }: { label: string; value: number |
   );
 }
 
+function ImageUploader({
+  onUploaded,
+  currentUrl,
+}: {
+  onUploaded: (url: string) => void;
+  currentUrl?: string;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError("");
+    try {
+      const url = await uploadPropertyImage(file);
+      onUploaded(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div>
+      <label className="text-white/40 text-xs tracking-widest uppercase block mb-2">
+        Property Photo
+      </label>
+      <div className="flex items-center gap-3 flex-wrap">
+        {currentUrl && (
+          <img
+            src={currentUrl}
+            alt="Preview"
+            className="w-16 h-16 object-cover border border-white/20"
+          />
+        )}
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+          className="flex items-center gap-2 border border-white/20 text-white/60 hover:border-[#D4AF37]/50 hover:text-[#D4AF37] text-xs tracking-widest uppercase px-4 py-2.5 transition-all disabled:opacity-50"
+          data-testid="btn-upload-image"
+        >
+          {uploading ? (
+            <>
+              <div className="w-3 h-3 border border-[#D4AF37] border-t-transparent rounded-full animate-spin" />
+              Uploading...
+            </>
+          ) : (
+            <>
+              <Upload size={13} />
+              Upload Photo
+            </>
+          )}
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleFile}
+        />
+      </div>
+      {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
+      {!isSupabaseConfigured && (
+        <p className="text-yellow-400/60 text-xs mt-1">
+          Supabase not configured — uploads disabled
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function Admin() {
   const [, setLocation] = useLocation();
   const [userChecked, setUserChecked] = useState(false);
   const [authed, setAuthed] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<Partial<EditingProperty>>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Partial<Property>>({});
   const [offerText, setOfferText] = useState("");
   const [offerSaved, setOfferSaved] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [newProp, setNewProp] = useState({
-    name: "", location: "", price: "", bedrooms: 2, bathrooms: 2,
-    area_sqft: 1200, description: "", image_url: "", is_sold_out: false,
-    is_featured: false, property_type: "Apartment",
+    title: "",
+    price: "",
+    status: "Available",
+    image_url: "",
   });
+  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
 
-  const queryClient = useQueryClient();
-  const { data: properties, isLoading } = useListProperties();
-  const { data: stats } = useGetPropertyStats();
+  const qc = useQueryClient();
+  const { data: properties, isLoading } = useProperties();
   const { data: offerData } = useGetSpecialOffer();
+  const createProperty = useCreateProperty();
   const updateProperty = useUpdateProperty();
   const deleteProperty = useDeleteProperty();
-  const createProperty = useCreateProperty();
   const updateOffer = useUpdateSpecialOffer();
 
+  const total = properties?.length ?? 0;
+  const available = properties?.filter((p) => p.status === "Available").length ?? 0;
+  const soldOut = properties?.filter((p) => p.status !== "Available").length ?? 0;
+  const featured = available;
+
   useEffect(() => {
-    if (offerData?.text && !offerText) {
-      setOfferText(offerData.text);
-    }
+    if (offerData?.text && !offerText) setOfferText(offerData.text);
   }, [offerData]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured) {
+    if (!isSupabaseConfigured || !supabase) {
       setAuthed(true);
       setUserChecked(true);
       return;
@@ -95,25 +166,14 @@ export default function Admin() {
   }, []);
 
   async function handleLogout() {
-    await supabase.auth.signOut();
+    if (supabase) await supabase.auth.signOut();
     setLocation("/login");
   }
 
-  function startEdit(p: NonNullable<typeof properties>[number]) {
+  function startEdit(p: Property) {
     setEditingId(p.id);
-    setEditForm({
-      id: p.id,
-      name: p.name,
-      price: p.price,
-      is_sold_out: p.is_sold_out,
-      image_url: p.image_url ?? "",
-      location: p.location,
-      bedrooms: p.bedrooms,
-      bathrooms: p.bathrooms,
-      area_sqft: p.area_sqft,
-      description: p.description,
-      property_type: p.property_type,
-    });
+    setEditForm({ ...p });
+    setImageUrls((prev) => ({ ...prev, [p.id]: p.image_url ?? "" }));
   }
 
   function cancelEdit() {
@@ -126,57 +186,42 @@ export default function Admin() {
     await updateProperty.mutateAsync({
       id: editingId,
       data: {
-        name: editForm.name,
+        title: editForm.title,
         price: editForm.price,
-        is_sold_out: editForm.is_sold_out,
-        image_url: editForm.image_url || null,
-        location: editForm.location,
-        bedrooms: editForm.bedrooms,
-        bathrooms: editForm.bathrooms,
-        area_sqft: editForm.area_sqft,
-        description: editForm.description,
-        property_type: editForm.property_type,
+        status: editForm.status,
+        image_url: imageUrls[editingId] || editForm.image_url || null,
       },
     });
-    queryClient.invalidateQueries({ queryKey: getListPropertiesQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetFeaturedPropertiesQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetPropertyStatsQueryKey() });
     setEditingId(null);
     setEditForm({});
   }
 
-  async function handleDelete(id: number) {
+  async function handleDelete(id: string) {
     if (!confirm("Delete this property permanently?")) return;
-    await deleteProperty.mutateAsync({ id });
-    queryClient.invalidateQueries({ queryKey: getListPropertiesQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetFeaturedPropertiesQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetPropertyStatsQueryKey() });
+    await deleteProperty.mutateAsync(id);
   }
 
-  async function handleToggleSoldOut(id: number, current: boolean) {
-    await updateProperty.mutateAsync({ id, data: { is_sold_out: !current } });
-    queryClient.invalidateQueries({ queryKey: getListPropertiesQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetFeaturedPropertiesQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetPropertyStatsQueryKey() });
+  async function handleToggleStatus(p: Property) {
+    const next = p.status === "Available" ? "Sold Out" : "Available";
+    await updateProperty.mutateAsync({ id: p.id, data: { status: next } });
   }
 
   async function handleSaveOffer() {
     await updateOffer.mutateAsync({ data: { text: offerText } });
-    queryClient.invalidateQueries({ queryKey: getGetSpecialOfferQueryKey() });
+    qc.invalidateQueries({ queryKey: getGetSpecialOfferQueryKey() });
     setOfferSaved(true);
     setTimeout(() => setOfferSaved(false), 2500);
   }
 
   async function handleCreate() {
-    await createProperty.mutateAsync({ data: newProp });
-    queryClient.invalidateQueries({ queryKey: getListPropertiesQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetPropertyStatsQueryKey() });
-    setShowCreate(false);
-    setNewProp({
-      name: "", location: "", price: "", bedrooms: 2, bathrooms: 2,
-      area_sqft: 1200, description: "", image_url: "", is_sold_out: false,
-      is_featured: false, property_type: "Apartment",
+    await createProperty.mutateAsync({
+      title: newProp.title,
+      price: newProp.price,
+      status: newProp.status,
+      image_url: newProp.image_url || null,
     });
+    setShowCreate(false);
+    setNewProp({ title: "", price: "", status: "Available", image_url: "" });
   }
 
   if (!userChecked) {
@@ -191,7 +236,7 @@ export default function Admin() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      {/* Admin Top Bar */}
+      {/* Top Bar */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-black border-b border-[#D4AF37]/20 h-14 flex items-center justify-between px-6">
         <div className="flex items-center gap-3">
           <span className="font-serif text-[#D4AF37] text-lg">Elite Estates</span>
@@ -215,19 +260,22 @@ export default function Admin() {
       </div>
 
       <div className="pt-14">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
+
           {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10">
-            <StatCard label="Total" value={stats?.total} icon={Home} />
-            <StatCard label="Available" value={stats?.available} icon={TrendingUp} />
-            <StatCard label="Sold Out" value={stats?.sold_out} icon={XCircle} />
-            <StatCard label="Featured" value={stats?.featured} icon={Star} />
+            <StatCard label="Total" value={total} icon={Home} />
+            <StatCard label="Available" value={available} icon={TrendingUp} />
+            <StatCard label="Sold Out" value={soldOut} icon={XCircle} />
+            <StatCard label="Featured" value={featured} icon={Star} />
           </div>
 
           {/* Special Offer Banner */}
           <div className="mb-10 bg-[#0a0a0a] border border-white/10 p-6">
             <h2 className="font-serif text-lg text-white mb-1">Homepage Marquee Banner</h2>
-            <p className="text-white/30 text-xs mb-4">This text scrolls across the top of the homepage.</p>
+            <p className="text-white/30 text-xs mb-4">
+              This text scrolls across the top of the homepage.
+            </p>
             <div className="flex gap-3">
               <input
                 value={offerText}
@@ -248,7 +296,7 @@ export default function Admin() {
             </div>
           </div>
 
-          {/* Properties */}
+          {/* Properties Header */}
           <div className="flex items-center justify-between mb-5">
             <h2 className="font-serif text-2xl text-white">Properties</h2>
             <button
@@ -268,53 +316,68 @@ export default function Admin() {
               animate={{ opacity: 1, y: 0 }}
               className="mb-6 bg-[#0d0d0d] border border-[#D4AF37]/30 p-6"
             >
-              <h3 className="font-serif text-lg text-[#D4AF37] mb-4">New Property</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {[
-                  { key: "name", label: "Name", type: "text" },
-                  { key: "location", label: "Location", type: "text" },
-                  { key: "price", label: "Price (e.g. ₹2.5 Cr)", type: "text" },
-                  { key: "property_type", label: "Type", type: "text" },
-                  { key: "bedrooms", label: "Bedrooms", type: "number" },
-                  { key: "bathrooms", label: "Bathrooms", type: "number" },
-                  { key: "area_sqft", label: "Area (sqft)", type: "number" },
-                  { key: "image_url", label: "Image URL", type: "text" },
-                ].map(({ key, label, type }) => (
-                  <div key={key}>
-                    <label className="text-white/40 text-xs tracking-widest uppercase block mb-1">{label}</label>
-                    <input
-                      type={type}
-                      value={String((newProp as Record<string, unknown>)[key] ?? "")}
-                      onChange={(e) =>
-                        setNewProp((p) => ({
-                          ...p,
-                          [key]: type === "number" ? parseInt(e.target.value) || 0 : e.target.value,
-                        }))
-                      }
-                      className="w-full bg-black border border-white/20 text-white px-3 py-2 text-sm focus:outline-none focus:border-[#D4AF37]"
-                      data-testid={`input-new-${key}`}
-                    />
-                  </div>
-                ))}
-                <div className="sm:col-span-2">
-                  <label className="text-white/40 text-xs tracking-widest uppercase block mb-1">Description</label>
-                  <textarea
-                    value={newProp.description}
-                    onChange={(e) => setNewProp((p) => ({ ...p, description: e.target.value }))}
-                    rows={3}
+              <h3 className="font-serif text-lg text-[#D4AF37] mb-5">New Property</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="text-white/40 text-xs tracking-widest uppercase block mb-1">Title</label>
+                  <input
+                    type="text"
+                    value={newProp.title}
+                    onChange={(e) => setNewProp((p) => ({ ...p, title: e.target.value }))}
                     className="w-full bg-black border border-white/20 text-white px-3 py-2 text-sm focus:outline-none focus:border-[#D4AF37]"
-                    data-testid="input-new-description"
+                    placeholder="e.g. The Crown Residences"
+                    data-testid="input-new-title"
+                  />
+                </div>
+                <div>
+                  <label className="text-white/40 text-xs tracking-widest uppercase block mb-1">Price</label>
+                  <input
+                    type="text"
+                    value={newProp.price}
+                    onChange={(e) => setNewProp((p) => ({ ...p, price: e.target.value }))}
+                    className="w-full bg-black border border-white/20 text-white px-3 py-2 text-sm focus:outline-none focus:border-[#D4AF37]"
+                    placeholder="e.g. ₹4.2 Cr"
+                    data-testid="input-new-price"
+                  />
+                </div>
+                <div>
+                  <label className="text-white/40 text-xs tracking-widest uppercase block mb-1">Status</label>
+                  <select
+                    value={newProp.status}
+                    onChange={(e) => setNewProp((p) => ({ ...p, status: e.target.value }))}
+                    className="w-full bg-black border border-white/20 text-white px-3 py-2 text-sm focus:outline-none focus:border-[#D4AF37]"
+                    data-testid="select-new-status"
+                  >
+                    <option value="Available">Available</option>
+                    <option value="Sold Out">Sold Out</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-white/40 text-xs tracking-widest uppercase block mb-1">Image URL (optional)</label>
+                  <input
+                    type="text"
+                    value={newProp.image_url}
+                    onChange={(e) => setNewProp((p) => ({ ...p, image_url: e.target.value }))}
+                    className="w-full bg-black border border-white/20 text-white px-3 py-2 text-sm focus:outline-none focus:border-[#D4AF37]"
+                    placeholder="https://..."
+                    data-testid="input-new-image-url"
                   />
                 </div>
               </div>
-              <div className="flex gap-3 mt-4">
+
+              <ImageUploader
+                onUploaded={(url) => setNewProp((p) => ({ ...p, image_url: url }))}
+                currentUrl={newProp.image_url}
+              />
+
+              <div className="flex gap-3 mt-5">
                 <button
                   onClick={handleCreate}
-                  disabled={createProperty.isPending}
-                  className="bg-[#D4AF37] text-black font-bold text-xs tracking-widest uppercase px-6 py-2.5 hover:bg-[#e8c94a] disabled:opacity-50"
+                  disabled={createProperty.isPending || !newProp.title || !newProp.price}
+                  className="bg-[#D4AF37] text-black font-bold text-xs tracking-widest uppercase px-6 py-2.5 hover:bg-[#e8c94a] disabled:opacity-50 disabled:cursor-not-allowed"
                   data-testid="btn-create-property"
                 >
-                  Create Property
+                  {createProperty.isPending ? "Creating..." : "Create Property"}
                 </button>
                 <button
                   onClick={() => setShowCreate(false)}
@@ -333,6 +396,10 @@ export default function Admin() {
                 <div key={i} className="h-20 bg-white/5 animate-pulse" />
               ))}
             </div>
+          ) : !isSupabaseConfigured ? (
+            <div className="border border-white/10 p-8 text-center">
+              <p className="text-white/30 font-serif">Connect Supabase to manage properties.</p>
+            </div>
           ) : (
             <div className="space-y-3">
               {properties?.map((p) => (
@@ -343,52 +410,60 @@ export default function Admin() {
                   data-testid={`admin-property-${p.id}`}
                 >
                   {editingId === p.id ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {[
-                        { key: "name", label: "Name", type: "text" },
-                        { key: "price", label: "Price", type: "text" },
-                        { key: "location", label: "Location", type: "text" },
-                        { key: "property_type", label: "Type", type: "text" },
-                        { key: "bedrooms", label: "Beds", type: "number" },
-                        { key: "bathrooms", label: "Baths", type: "number" },
-                        { key: "area_sqft", label: "Area sqft", type: "number" },
-                        { key: "image_url", label: "Image URL", type: "text" },
-                      ].map(({ key, label, type }) => (
-                        <div key={key}>
-                          <label className="text-white/30 text-xs mb-1 block">{label}</label>
-                          <input
-                            type={type}
-                            value={String((editForm as Record<string, unknown>)[key] ?? "")}
-                            onChange={(e) =>
-                              setEditForm((f) => ({
-                                ...f,
-                                [key]: type === "number" ? parseInt(e.target.value) || 0 : e.target.value,
-                              }))
-                            }
-                            className="w-full bg-black border border-white/20 text-white px-3 py-2 text-sm focus:outline-none focus:border-[#D4AF37]"
-                            data-testid={`input-edit-${key}`}
-                          />
-                        </div>
-                      ))}
-                      <div className="sm:col-span-2">
-                        <label className="text-white/30 text-xs mb-1 block">Description</label>
-                        <textarea
-                          value={editForm.description ?? ""}
-                          onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
-                          rows={2}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-white/30 text-xs mb-1 block">Title</label>
+                        <input
+                          type="text"
+                          value={editForm.title ?? ""}
+                          onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
                           className="w-full bg-black border border-white/20 text-white px-3 py-2 text-sm focus:outline-none focus:border-[#D4AF37]"
+                          data-testid="input-edit-title"
                         />
                       </div>
-                      <div className="sm:col-span-2 flex items-center gap-3">
-                        <label className="text-white/40 text-xs uppercase tracking-widest">Sold Out</label>
-                        <button
-                          onClick={() => setEditForm((f) => ({ ...f, is_sold_out: !f.is_sold_out }))}
-                          className="text-[#D4AF37]"
-                        >
-                          {editForm.is_sold_out ? <ToggleRight size={24} /> : <ToggleLeft size={24} />}
-                        </button>
+                      <div>
+                        <label className="text-white/30 text-xs mb-1 block">Price</label>
+                        <input
+                          type="text"
+                          value={editForm.price ?? ""}
+                          onChange={(e) => setEditForm((f) => ({ ...f, price: e.target.value }))}
+                          className="w-full bg-black border border-white/20 text-white px-3 py-2 text-sm focus:outline-none focus:border-[#D4AF37]"
+                          data-testid="input-edit-price"
+                        />
                       </div>
-                      <div className="sm:col-span-2 flex gap-3 mt-2">
+                      <div>
+                        <label className="text-white/30 text-xs mb-1 block">Status</label>
+                        <select
+                          value={editForm.status ?? "Available"}
+                          onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}
+                          className="w-full bg-black border border-white/20 text-white px-3 py-2 text-sm focus:outline-none focus:border-[#D4AF37]"
+                          data-testid="select-edit-status"
+                        >
+                          <option value="Available">Available</option>
+                          <option value="Sold Out">Sold Out</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-white/30 text-xs mb-1 block">Image URL</label>
+                        <input
+                          type="text"
+                          value={imageUrls[p.id] ?? editForm.image_url ?? ""}
+                          onChange={(e) =>
+                            setImageUrls((prev) => ({ ...prev, [p.id]: e.target.value }))
+                          }
+                          className="w-full bg-black border border-white/20 text-white px-3 py-2 text-sm focus:outline-none focus:border-[#D4AF37]"
+                          data-testid="input-edit-image-url"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <ImageUploader
+                          onUploaded={(url) =>
+                            setImageUrls((prev) => ({ ...prev, [p.id]: url }))
+                          }
+                          currentUrl={imageUrls[p.id] ?? editForm.image_url ?? ""}
+                        />
+                      </div>
+                      <div className="sm:col-span-2 flex gap-3">
                         <button
                           onClick={saveEdit}
                           disabled={updateProperty.isPending}
@@ -409,31 +484,35 @@ export default function Admin() {
                   ) : (
                     <div className="flex items-center justify-between gap-4 flex-wrap">
                       <div className="flex items-center gap-4 flex-1 min-w-0">
-                        {p.image_url && (
+                        {p.image_url ? (
                           <img
                             src={p.image_url}
-                            alt={p.name}
-                            className="w-14 h-14 object-cover flex-shrink-0"
+                            alt={p.title}
+                            className="w-14 h-14 object-cover flex-shrink-0 border border-white/10"
                             loading="lazy"
                           />
+                        ) : (
+                          <div className="w-14 h-14 bg-white/5 flex items-center justify-center flex-shrink-0">
+                            <ImageIcon size={18} className="text-white/20" />
+                          </div>
                         )}
                         <div className="min-w-0">
-                          <p className="font-serif text-white text-base truncate">{p.name}</p>
-                          <p className="text-white/40 text-xs">{p.location} — {p.property_type}</p>
+                          <p className="font-serif text-white text-base truncate">{p.title}</p>
                           <p className="text-[#D4AF37] text-sm font-bold">{p.price}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <button
-                          onClick={() => handleToggleSoldOut(p.id, p.is_sold_out)}
-                          className={`text-xs tracking-widest uppercase px-3 py-1.5 border transition-all min-h-[36px] ${
-                            p.is_sold_out
-                              ? "border-red-500/50 text-red-400 hover:border-red-500"
-                              : "border-green-500/50 text-green-400 hover:border-green-500"
+                          onClick={() => handleToggleStatus(p)}
+                          disabled={updateProperty.isPending}
+                          className={`text-xs tracking-widest uppercase px-3 py-1.5 border transition-all min-h-[36px] disabled:opacity-50 ${
+                            p.status === "Available"
+                              ? "border-green-500/50 text-green-400 hover:border-green-500"
+                              : "border-red-500/50 text-red-400 hover:border-red-500"
                           }`}
-                          data-testid={`btn-toggle-sold-${p.id}`}
+                          data-testid={`btn-toggle-status-${p.id}`}
                         >
-                          {p.is_sold_out ? "Sold Out" : "Available"}
+                          {p.status}
                         </button>
                         <button
                           onClick={() => startEdit(p)}
@@ -454,6 +533,13 @@ export default function Admin() {
                   )}
                 </motion.div>
               ))}
+
+              {properties?.length === 0 && (
+                <div className="border border-white/10 p-10 text-center">
+                  <p className="text-white/30 font-serif mb-2">No properties yet.</p>
+                  <p className="text-white/20 text-xs">Click "Add Property" to create your first listing.</p>
+                </div>
+              )}
             </div>
           )}
         </div>

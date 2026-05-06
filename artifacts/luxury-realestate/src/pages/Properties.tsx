@@ -1,25 +1,22 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { MessageCircle, SlidersHorizontal } from "lucide-react";
-import { useListProperties } from "@workspace/api-client-react";
+import { useProperties } from "@/lib/properties";
+import { isSupabaseConfigured } from "@/lib/supabase";
 import PropertyCard from "@/components/PropertyCard";
 import Navbar from "@/components/Navbar";
 
 export default function Properties() {
-  const [filter, setFilter] = useState<"all" | "available" | "sold_out">("all");
+  const [filter, setFilter] = useState<"all" | "Available" | "Sold Out">("all");
 
-  const { data: properties, isLoading } = useListProperties(
-    filter === "available"
-      ? { sold_out: false }
-      : filter === "sold_out"
-      ? { sold_out: true }
-      : {},
+  const { data: properties, isLoading } = useProperties(
+    filter === "all" ? undefined : filter
   );
 
   const filters: { key: typeof filter; label: string }[] = [
     { key: "all", label: "All" },
-    { key: "available", label: "Available" },
-    { key: "sold_out", label: "Sold Out" },
+    { key: "Available", label: "Available" },
+    { key: "Sold Out", label: "Sold Out" },
   ];
 
   return (
@@ -66,7 +63,12 @@ export default function Properties() {
           ))}
         </div>
 
-        {isLoading ? (
+        {!isSupabaseConfigured ? (
+          <div className="text-center py-20 border border-white/10">
+            <p className="text-white/30 font-serif text-lg mb-2">Supabase not connected</p>
+            <p className="text-white/20 text-sm">Add your Supabase credentials to display live properties.</p>
+          </div>
+        ) : isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...Array(6)].map((_, i) => (
               <div key={i} className="aspect-[4/3] bg-white/5 animate-pulse" />

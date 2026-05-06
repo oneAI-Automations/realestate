@@ -12,16 +12,13 @@ export default function Login() {
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    if (!isSupabaseConfigured) {
-      setError("Supabase is not configured. Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
+    if (!isSupabaseConfigured || !supabase) {
+      setError("Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
       return;
     }
     setLoading(true);
     setError("");
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (authError) {
       setError(authError.message);
@@ -61,6 +58,7 @@ export default function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                autoComplete="email"
                 className="w-full bg-black border border-white/20 text-white px-4 py-3 text-sm focus:outline-none focus:border-[#D4AF37] transition-colors placeholder-white/20"
                 placeholder="admin@example.com"
                 data-testid="input-email"
@@ -75,6 +73,7 @@ export default function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                autoComplete="current-password"
                 className="w-full bg-black border border-white/20 text-white px-4 py-3 text-sm focus:outline-none focus:border-[#D4AF37] transition-colors placeholder-white/20"
                 placeholder="••••••••"
                 data-testid="input-password"
@@ -82,7 +81,10 @@ export default function Login() {
             </div>
 
             {error && (
-              <p className="text-red-400 text-xs border border-red-500/20 bg-red-500/5 px-3 py-2" data-testid="text-error">
+              <p
+                className="text-red-400 text-xs border border-red-500/20 bg-red-500/5 px-3 py-2"
+                data-testid="text-error"
+              >
                 {error}
               </p>
             )}

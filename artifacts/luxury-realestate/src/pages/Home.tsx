@@ -1,9 +1,11 @@
 import { motion } from "framer-motion";
 import { MessageCircle, ChevronDown, Dumbbell, Car, Trees, Waves, Shield, ConciergeBell } from "lucide-react";
 import { Link } from "wouter";
-import { useGetFeaturedProperties, useGetSpecialOffer } from "@workspace/api-client-react";
+import { useGetSpecialOffer } from "@workspace/api-client-react";
+import { useFeaturedProperties } from "@/lib/properties";
 import PropertyCard from "@/components/PropertyCard";
 import Navbar from "@/components/Navbar";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 const amenities = [
   { icon: Dumbbell, label: "Premium Gym" },
@@ -33,7 +35,7 @@ function MarqueeBanner({ text }: { text: string }) {
 }
 
 export default function Home() {
-  const { data: featured, isLoading } = useGetFeaturedProperties();
+  const { data: featured, isLoading } = useFeaturedProperties();
   const { data: offerData } = useGetSpecialOffer();
 
   const specialOfferText =
@@ -128,7 +130,12 @@ export default function Home() {
           <div className="mt-4 h-px w-16 bg-[#D4AF37] mx-auto" />
         </motion.div>
 
-        {isLoading ? (
+        {!isSupabaseConfigured ? (
+          <div className="text-center py-16 border border-white/10">
+            <p className="text-white/30 font-serif text-lg mb-2">Supabase not connected</p>
+            <p className="text-white/20 text-sm">Add your Supabase credentials to display live properties.</p>
+          </div>
+        ) : isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...Array(3)].map((_, i) => (
               <div key={i} className="aspect-[4/3] bg-white/5 animate-pulse" />
@@ -141,7 +148,9 @@ export default function Home() {
             ))}
           </div>
         ) : (
-          <p className="text-center text-white/30 py-12">No featured properties available.</p>
+          <p className="text-center text-white/30 py-12 font-serif">
+            No available properties at the moment. Check back soon.
+          </p>
         )}
 
         <div className="text-center mt-12">
@@ -213,8 +222,7 @@ export default function Home() {
             Your Dream Home Awaits
           </h2>
           <p className="text-white/50 text-base max-w-md mx-auto mb-10">
-            Speak directly with our exclusive sales team. Schedule a private
-            viewing today.
+            Speak directly with our exclusive sales team. Schedule a private viewing today.
           </p>
           <a
             href="https://wa.me/919999999999"
