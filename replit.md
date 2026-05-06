@@ -1,45 +1,61 @@
-# [Project name]
+# Elite Estates
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A high-end Luxury Noir real estate portal for Pune builders — featuring a cinematic public interface and a protected owner admin dashboard.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- `pnpm --filter @workspace/luxury-realestate run dev` — frontend (port 19788, preview at `/`)
+- `pnpm --filter @workspace/api-server run dev` — API server (port 8080, at `/api`)
+- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks + Zod schemas from OpenAPI spec
+- `pnpm --filter @workspace/db run push` — push DB schema changes to Replit PostgreSQL
+- Required env: `DATABASE_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- Frontend: React 18, Vite, Tailwind CSS, Framer Motion, Wouter (routing)
+- API: Express 5, Drizzle ORM, PostgreSQL (Replit-managed)
+- Auth: Supabase Auth (client-side, admin only)
+- API codegen: Orval (OpenAPI → React Query hooks + Zod schemas)
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `lib/api-spec/openapi.yaml` — API contract (source of truth)
+- `lib/db/src/schema/` — Drizzle table definitions (`properties.ts`, `settings.ts`)
+- `artifacts/luxury-realestate/src/pages/` — Home, Properties, Login, Admin
+- `artifacts/luxury-realestate/src/lib/supabase.ts` — Supabase client (guarded)
+- `artifacts/api-server/src/routes/` — properties.ts, settings.ts, health.ts
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Properties and settings are stored in Replit's PostgreSQL (via Drizzle), NOT Supabase DB
+- Supabase is used ONLY for admin authentication (signInWithPassword)
+- The Supabase client is lazily initialized and gracefully degrades to demo mode if env vars are missing or invalid
+- Codegen script patches `lib/api-zod/src/index.ts` post-orval to avoid duplicate export conflicts
+- Admin route is client-side guarded via `supabase.auth.getUser()` on mount
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- **Public:** Cinematic hero with WhatsApp CTA, scrolling special-offer marquee banner, featured property gallery (live from DB), amenities section with gold icons
+- **Properties page:** Full gallery with available/sold-out filters
+- **Admin (/login + /admin):** Protected dashboard — edit prices, toggle sold-out status, update image URLs, add/delete properties, update homepage marquee text, view stats
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Luxury Noir theme: #000000 background, #D4AF37 gold, white typography
+- Site name: samplewebsite.replit.app / Elite Estates
+- WhatsApp link: https://wa.me/919999999999 (update to real number before launch)
+- Target audience: Pune luxury real estate builders
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Run `pnpm --filter @workspace/api-spec run codegen` after every OpenAPI spec change
+- The codegen script echoes a fixed `index.ts` to avoid orval's duplicate barrel exports
+- Supabase URL must be a valid https:// URL or the client silently degrades to demo mode
+- To create an admin user: use Supabase dashboard → Authentication → Add user
+- `pnpm --filter @workspace/db run push` must be run after schema changes
 
 ## Pointers
 
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- See `lib/api-spec/openapi.yaml` for all endpoint definitions
+- See `.local/skills/pnpm-workspace/` for workspace conventions
