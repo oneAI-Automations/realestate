@@ -3,20 +3,23 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Luxury Real Estate API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: properties
+    description: Property listing operations
+  - name: settings
+    description: Site settings operations
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +27,160 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /properties:
+    get:
+      operationId: listProperties
+      tags: [properties]
+      summary: List all properties
+      parameters:
+        - name: sold_out
+          in: query
+          required: false
+          schema:
+            type: ["boolean", "null"]
+      responses:
+        "200":
+          description: List of properties
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Property"
+    post:
+      operationId: createProperty
+      tags: [properties]
+      summary: Create a new property
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePropertyBody"
+      responses:
+        "201":
+          description: Created property
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Property"
+
+  /properties/featured:
+    get:
+      operationId: getFeaturedProperties
+      tags: [properties]
+      summary: Get featured (non-sold-out) properties for homepage
+      responses:
+        "200":
+          description: Featured properties
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Property"
+
+  /properties/stats:
+    get:
+      operationId: getPropertyStats
+      tags: [properties]
+      summary: Get aggregate stats for admin dashboard
+      responses:
+        "200":
+          description: Property statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PropertyStats"
+
+  /properties/{id}:
+    get:
+      operationId: getProperty
+      tags: [properties]
+      summary: Get a single property
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Property
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Property"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateProperty
+      tags: [properties]
+      summary: Update a property
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePropertyBody"
+      responses:
+        "200":
+          description: Updated property
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Property"
+    delete:
+      operationId: deleteProperty
+      tags: [properties]
+      summary: Delete a property
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /settings/special-offer:
+    get:
+      operationId: getSpecialOffer
+      tags: [settings]
+      summary: Get the homepage marquee/banner special offer text
+      responses:
+        "200":
+          description: Special offer text
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpecialOffer"
+    patch:
+      operationId: updateSpecialOffer
+      tags: [settings]
+      summary: Update the homepage special offer banner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSpecialOfferBody"
+      responses:
+        "200":
+          description: Updated special offer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpecialOffer"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +191,149 @@ components:
       required:
         - status
 
+    Property:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        location:
+          type: string
+        price:
+          type: string
+        bedrooms:
+          type: integer
+        bathrooms:
+          type: integer
+        area_sqft:
+          type: integer
+        description:
+          type: string
+        image_url:
+          type: ["string", "null"]
+        is_sold_out:
+          type: boolean
+        is_featured:
+          type: boolean
+        property_type:
+          type: string
+        created_at:
+          type: string
+        updated_at:
+          type: string
+      required:
+        - id
+        - name
+        - location
+        - price
+        - bedrooms
+        - bathrooms
+        - area_sqft
+        - description
+        - image_url
+        - is_sold_out
+        - is_featured
+        - property_type
+        - created_at
+        - updated_at
+
+    CreatePropertyBody:
+      type: object
+      properties:
+        name:
+          type: string
+        location:
+          type: string
+        price:
+          type: string
+        bedrooms:
+          type: integer
+        bathrooms:
+          type: integer
+        area_sqft:
+          type: integer
+        description:
+          type: string
+        image_url:
+          type: ["string", "null"]
+        is_sold_out:
+          type: boolean
+        is_featured:
+          type: boolean
+        property_type:
+          type: string
+      required:
+        - name
+        - location
+        - price
+        - bedrooms
+        - bathrooms
+        - area_sqft
+        - description
+        - property_type
+
+    UpdatePropertyBody:
+      type: object
+      properties:
+        name:
+          type: ["string", "null"]
+        location:
+          type: ["string", "null"]
+        price:
+          type: ["string", "null"]
+        bedrooms:
+          type: ["integer", "null"]
+        bathrooms:
+          type: ["integer", "null"]
+        area_sqft:
+          type: ["integer", "null"]
+        description:
+          type: ["string", "null"]
+        image_url:
+          type: ["string", "null"]
+        is_sold_out:
+          type: ["boolean", "null"]
+        is_featured:
+          type: ["boolean", "null"]
+        property_type:
+          type: ["string", "null"]
+
+    PropertyStats:
+      type: object
+      properties:
+        total:
+          type: integer
+        available:
+          type: integer
+        sold_out:
+          type: integer
+        featured:
+          type: integer
+      required:
+        - total
+        - available
+        - sold_out
+        - featured
+
+    SpecialOffer:
+      type: object
+      properties:
+        id:
+          type: integer
+        text:
+          type: string
+        updated_at:
+          type: string
+      required:
+        - id
+        - text
+        - updated_at
+
+    UpdateSpecialOfferBody:
+      type: object
+      properties:
+        text:
+          type: string
+      required:
+        - text

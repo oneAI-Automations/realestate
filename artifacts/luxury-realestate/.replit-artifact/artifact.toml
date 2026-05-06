@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Luxury Real Estate"
+version = "1.0.0"
+id = "artifacts/luxury-realestate"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19788
+
+[services.development]
+run = "pnpm --filter @workspace/luxury-realestate run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/luxury-realestate", "run", "build" ]
+publicDir = "artifacts/luxury-realestate/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19788"
+BASE_PATH = "/"
