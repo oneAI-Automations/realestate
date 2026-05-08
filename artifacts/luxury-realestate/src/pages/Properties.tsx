@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { MessageCircle, SlidersHorizontal } from "lucide-react";
-import { useProperties } from "@/lib/properties";
+import { useProperties, type Property } from "@/lib/properties";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import PropertyCard from "@/components/PropertyCard";
+import PropertyDetailModal from "@/components/PropertyDetailModal";
 import Navbar from "@/components/Navbar";
 
 export default function Properties() {
   const [filter, setFilter] = useState<"all" | "Available" | "Sold Out">("all");
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
 
   const { data: properties, isLoading } = useProperties(
     filter === "all" ? undefined : filter
@@ -77,7 +79,12 @@ export default function Properties() {
         ) : properties && properties.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {properties.map((p, i) => (
-              <PropertyCard key={p.id} property={p} index={i} />
+              <PropertyCard
+                key={p.id}
+                property={p}
+                index={i}
+                onClick={setSelectedProperty}
+              />
             ))}
           </div>
         ) : (
@@ -111,6 +118,12 @@ export default function Properties() {
           </a>
         </motion.div>
       </div>
+
+      {/* Property Detail Modal */}
+      <PropertyDetailModal
+        property={selectedProperty}
+        onClose={() => setSelectedProperty(null)}
+      />
     </div>
   );
 }

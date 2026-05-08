@@ -1,13 +1,16 @@
 import { motion } from "framer-motion";
 import type { Property } from "@/lib/properties";
+import { getThumb } from "@/lib/properties";
 
 interface PropertyCardProps {
   property: Property;
   index?: number;
+  onClick?: (property: Property) => void;
 }
 
-export default function PropertyCard({ property, index = 0 }: PropertyCardProps) {
+export default function PropertyCard({ property, index = 0, onClick }: PropertyCardProps) {
   const isSoldOut = property.status !== "Available";
+  const thumb = getThumb(property);
 
   return (
     <motion.div
@@ -15,13 +18,14 @@ export default function PropertyCard({ property, index = 0 }: PropertyCardProps)
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.5, delay: index * 0.1 }}
-      className="group relative bg-[#0a0a0a] border border-white/10 hover:border-[#D4AF37]/60 transition-all duration-500 overflow-hidden"
+      className={`group relative bg-[#0a0a0a] border border-white/10 hover:border-[#D4AF37]/60 transition-all duration-500 overflow-hidden ${onClick ? "cursor-pointer" : ""}`}
+      onClick={() => onClick?.(property)}
       data-testid={`card-property-${property.id}`}
     >
       <div className="relative aspect-[4/3] overflow-hidden">
-        {property.image_url ? (
+        {thumb ? (
           <img
-            src={property.image_url}
+            src={thumb}
             alt={property.title}
             loading="lazy"
             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
@@ -48,6 +52,20 @@ export default function PropertyCard({ property, index = 0 }: PropertyCardProps)
             </span>
           </div>
         )}
+
+        {property.images && property.images.length > 1 && (
+          <div className="absolute bottom-3 right-3 bg-black/60 text-white/60 text-[10px] px-2 py-0.5">
+            {property.images.length} photos
+          </div>
+        )}
+
+        {onClick && (
+          <div className="absolute inset-0 bg-[#D4AF37]/0 group-hover:bg-[#D4AF37]/5 transition-all duration-500 flex items-center justify-center">
+            <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-white/80 text-xs tracking-widest uppercase bg-black/60 px-4 py-2 border border-white/20">
+              View Details
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="p-5">
@@ -66,6 +84,10 @@ export default function PropertyCard({ property, index = 0 }: PropertyCardProps)
           </span>
         </div>
 
+        {property.location && (
+          <p className="text-white/40 text-xs mb-3 truncate">{property.location}</p>
+        )}
+
         <div className="pt-3 border-t border-white/10 flex items-center justify-between">
           <span
             className={`text-xs tracking-widest uppercase font-medium ${
@@ -74,15 +96,12 @@ export default function PropertyCard({ property, index = 0 }: PropertyCardProps)
           >
             {property.status}
           </span>
-          <a
-            href="https://wa.me/919999999999"
-            target="_blank"
-            rel="noopener noreferrer"
+          <span
             className="text-[#D4AF37] text-xs tracking-widest uppercase hover:underline"
             data-testid={`btn-enquire-${property.id}`}
           >
-            Enquire
-          </a>
+            {onClick ? "View Details →" : "Enquire"}
+          </span>
         </div>
       </div>
     </motion.div>

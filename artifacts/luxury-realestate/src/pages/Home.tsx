@@ -1,20 +1,14 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { MessageCircle, ChevronDown, Dumbbell, Car, Trees, Waves, Shield, ConciergeBell } from "lucide-react";
+import { MessageCircle, ChevronDown } from "lucide-react";
 import { Link } from "wouter";
 import { useGetSpecialOffer } from "@workspace/api-client-react";
-import { useFeaturedProperties } from "@/lib/properties";
+import { useFeaturedProperties, type Property } from "@/lib/properties";
+import { useAmenities } from "@/lib/amenities";
 import PropertyCard from "@/components/PropertyCard";
+import PropertyDetailModal from "@/components/PropertyDetailModal";
 import Navbar from "@/components/Navbar";
 import { isSupabaseConfigured } from "@/lib/supabase";
-
-const amenities = [
-  { icon: Dumbbell, label: "Premium Gym" },
-  { icon: Car, label: "Secure Parking" },
-  { icon: Trees, label: "Landscaped Garden" },
-  { icon: Waves, label: "Infinity Pool" },
-  { icon: Shield, label: "24/7 Security" },
-  { icon: ConciergeBell, label: "Concierge" },
-];
 
 function MarqueeBanner({ text }: { text: string }) {
   return (
@@ -35,8 +29,10 @@ function MarqueeBanner({ text }: { text: string }) {
 }
 
 export default function Home() {
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const { data: featured, isLoading } = useFeaturedProperties();
   const { data: offerData } = useGetSpecialOffer();
+  const { data: amenities, isLoading: amenitiesLoading } = useAmenities();
 
   const specialOfferText =
     offerData?.text ||
@@ -144,7 +140,12 @@ export default function Home() {
         ) : featured && featured.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {featured.map((p, i) => (
-              <PropertyCard key={p.id} property={p} index={i} />
+              <PropertyCard
+                key={p.id}
+                property={p}
+                index={i}
+                onClick={setSelectedProperty}
+              />
             ))}
           </div>
         ) : (
@@ -164,7 +165,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Amenities */}
+      {/* Amenities — live from DB */}
       <section className="py-24 bg-[#050505] border-y border-white/5" data-testid="section-amenities">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
@@ -183,27 +184,38 @@ export default function Home() {
             <div className="mt-4 h-px w-16 bg-[#D4AF37] mx-auto" />
           </motion.div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-6">
-            {amenities.map((a, i) => (
-              <motion.div
-                key={a.label}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: i * 0.08 }}
-                className="flex flex-col items-center gap-4 py-8 px-4 border border-white/5 hover:border-[#D4AF37]/40 transition-all group"
-                data-testid={`amenity-${a.label.toLowerCase().replace(/\s/g, "-")}`}
-              >
-                <a.icon
-                  size={28}
-                  className="text-[#D4AF37] group-hover:scale-110 transition-transform"
-                />
-                <span className="text-white/60 text-xs tracking-widest uppercase text-center group-hover:text-white transition-colors">
-                  {a.label}
-                </span>
-              </motion.div>
-            ))}
-          </div>
+          {amenitiesLoading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-6">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="h-28 bg-white/5 animate-pulse" />
+              ))}
+            </div>
+          ) : amenities && amenities.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-6">
+              {amenities.map((a, i) => (
+                <motion.div
+                  key={a.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.4, delay: i * 0.08 }}
+                  className="flex flex-col items-center gap-4 py-8 px-4 border border-white/5 hover:border-[#D4AF37]/40 transition-all group"
+                  data-testid={`amenity-${a.name.toLowerCase().replace(/\s/g, "-")}`}
+                >
+                  <span className="text-3xl group-hover:scale-110 transition-transform">
+                    {a.icon}
+                  </span>
+                  <span className="text-white/60 text-xs tracking-widest uppercase text-center group-hover:text-white transition-colors">
+                    {a.name}
+                  </span>
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-white/20 text-sm py-8">
+              Amenities will appear here once added from the admin dashboard.
+            </p>
+          )}
         </div>
       </section>
 
@@ -247,6 +259,12 @@ export default function Home() {
           &copy; {new Date().getFullYear()} Elite Estates. All rights reserved.
         </p>
       </footer>
+
+      {/* Property Detail Modal */}
+      <PropertyDetailModal
+        property={selectedProperty}
+        onClose={() => setSelectedProperty(null)}
+      />
     </div>
   );
 }

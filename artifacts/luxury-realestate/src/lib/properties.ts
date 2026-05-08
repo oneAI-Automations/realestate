@@ -6,8 +6,15 @@ export interface Property {
   title: string;
   price: string;
   status: string;
-  image_url: string | null;
+  location: string | null;
+  description: string | null;
+  contact_number: string | null;
+  images: string[];
   created_at: string;
+}
+
+export function getThumb(p: Property): string | null {
+  return p.images?.[0] ?? null;
 }
 
 export const PROPERTIES_KEY = ["supabase-properties"] as const;
@@ -19,7 +26,10 @@ async function fetchProperties(statusFilter?: string): Promise<Property[]> {
   if (statusFilter) q = q.eq("status", statusFilter);
   const { data, error } = await q;
   if (error) throw error;
-  return (data ?? []) as Property[];
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    ...r,
+    images: Array.isArray(r.images) ? r.images : [],
+  })) as Property[];
 }
 
 export function useProperties(statusFilter?: string) {
@@ -45,7 +55,7 @@ export function useCreateProperty() {
       if (!supabase) throw new Error("Supabase not configured");
       const { data: result, error } = await supabase
         .from("properties")
-        .insert(data)
+        .insert({ ...data, images: data.images ?? [] })
         .select()
         .single();
       if (error) throw error;
@@ -61,13 +71,7 @@ export function useCreateProperty() {
 export function useUpdateProperty() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({
-      id,
-      data,
-    }: {
-      id: string;
-      data: Partial<Omit<Property, "id" | "created_at">>;
-    }) => {
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Omit<Property, "id" | "created_at">> }) => {
       if (!supabase) throw new Error("Supabase not configured");
       const { data: result, error } = await supabase
         .from("properties")
@@ -111,4 +115,8 @@ export async function uploadPropertyImage(file: File): Promise<string> {
   if (error) throw error;
   const { data } = supabase.storage.from("property-images").getPublicUrl(path);
   return data.publicUrl;
+}
+
+export async function uploadPropertyImages(files: File[]): Promise<string[]> {
+  return Promise.all(files.map(uploadPropertyImage));
 }
