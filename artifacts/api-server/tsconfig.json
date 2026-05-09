@@ -3,7 +3,12 @@
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src",
-    "types": ["node"]
+    "types": ["node"],
+    "skipLibCheck": true,
+    "noEmit": false,
+    "emitDeclarationOnly": false,
+    "allowJs": true,
+    "isolatedModules": true
   },
   "include": ["src"],
   "references": [
