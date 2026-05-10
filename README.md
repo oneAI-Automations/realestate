@@ -1,7 +1,7 @@
 # Elite Estates — Luxury Real Estate Portal
 
 A high-end "Luxury Noir" real estate web app for Pune builders. Deep black, gold accents, white typography. Built with React + Vite, Express, PostgreSQL, and Supabase Auth.
-
+ 
 ---
 
 ## Connecting Your API Keys
